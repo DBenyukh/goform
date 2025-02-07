@@ -9,7 +9,7 @@ import (
 
 // generateCSRFToken генерирует CSRF-токен с использованием SHA-256.
 // Возвращает токен в виде строки base64 или ошибку, если что-то пошло не так.
-func generateCSRFToken() (string, error) {
+func GenerateCSRFToken() (string, error) {
 	randomBytes := make([]byte, 32)
 	_, err := rand.Read(randomBytes)
 	if err != nil {

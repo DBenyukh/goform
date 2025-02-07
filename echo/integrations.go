@@ -1,8 +1,8 @@
 package echo
 
 import (
+	"github.com/DBenyukh/goform/core"
 	"github.com/labstack/echo/v4"
-	"goform/core"
 	"net/http"
 )
 
@@ -68,7 +68,7 @@ func SetCSRFToken(c echo.Context, token string) {
 
 // RenderForm рендерит форму в контексте Echo.
 func RenderForm(c echo.Context, form *core.Form) error {
-	return c.Render(http.StatusOK, "form.html", map[string]interface{}{
+	return c.Render(http.StatusOK, "templates/default.html", map[string]interface{}{
 		"form": form.Render(),
 	})
 }

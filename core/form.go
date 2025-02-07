@@ -3,7 +3,6 @@ package core
 import (
 	"net/http"
 	"reflect"
-	"strings"
 )
 
 // Form представляет HTML-форму.
@@ -11,6 +10,13 @@ type Form struct {
 	Fields []*Field          // Поля формы
 	CSRF   string            // CSRF-токен
 	errors map[string]string // Ошибки валидации
+}
+
+// RenderData представляет данные для рендеринга формы.
+type RenderData struct {
+	Fields []*Field
+	Errors map[string]string
+	CSRF   string
 }
 
 // NewForm создает новую форму на основе модели.
@@ -27,39 +33,18 @@ func (f *Form) AddField(field *Field) {
 	f.Fields = append(f.Fields, field)
 }
 
-// Render возвращает HTML-код формы.
-func (f *Form) Render() string {
-	var sb strings.Builder
-
-	sb.WriteString("<form method='POST'>")
-
-	for _, field := range f.Fields {
-		sb.WriteString("<div>")
-		sb.WriteString("<label>" + field.Name + "</label>")
-
-		value := ""
-		if field.Value != nil {
-			value = field.Value.(string)
-		}
-
-		sb.WriteString("<input type='text' name='" + field.Name + "' value='" + value + "'>")
-
-		if field.Error != "" {
-			sb.WriteString("<span style='color: red;'>" + field.Error + "</span>")
-		}
-
-		sb.WriteString("</div>")
-	}
-
-	sb.WriteString("<button type='submit'>Submit</button>")
-	sb.WriteString("</form>")
-
-	return sb.String()
-}
-
 // Bind привязывает данные из запроса к форме.
 func (f *Form) Bind(r *http.Request) error {
 	return bindForm(r, f)
+}
+
+// Render возвращает HTML-код формы.
+func (f *Form) Render() RenderData {
+	return RenderData{
+		Fields: f.Fields,
+		Errors: f.errors,
+		CSRF:   f.CSRF,
+	}
 }
 
 // Validate проверяет данные формы.
