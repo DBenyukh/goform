@@ -1,41 +1,64 @@
 package echo
 
 import (
+	"encoding/json"
+	"errors"
 	"github.com/DBenyukh/goform/core"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
-// RegistrationForm представляет форму регистрации.
-type RegistrationForm struct {
-	Username string `form:"username" validate:"required,min=3"`
-	Email    string `form:"email" validate:"required,email"`
-	Password string `form:"password" validate:"required,min=6"`
+type TestForm struct {
+	Username string `form:"username" validate:"required,min=3" validate_msg:"Username must be at least 3 characters"`
+	Email    string `form:"email" validate:"required,email" validate_msg:"Please provide a valid email address"`
+	Password string `form:"password" validate:"required" validate_msg:"Password is required"`
+	Method   string `form:"-"`
+	FormID   string `form:"-"`
 }
 
-func TestFormMiddleware(t *testing.T) {
+// TestFormMiddlewareSuccess проверяет успешную привязку данных формы.
+func TestFormMiddlewareSuccess(t *testing.T) {
 	e := echo.New()
-	model := &RegistrationForm{}
+	model := &TestForm{
+		Method: "POST",
+		FormID: "test_form",
+	}
 
-	e.Use(FormMiddleware(model))
-	e.GET("/", func(c echo.Context) error {
-		form := c.Get("form").(*core.Form)
-		return c.JSON(http.StatusOK, form)
+	e.Use(FormMiddleware(model, model.Method, model.FormID))
+	e.POST("/", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, model)
 	})
 
-	req := httptest.NewRequest("GET", "/", nil)
+	formData := url.Values{
+		"test_form_username": {"testuser"},
+		"test_form_email":    {"test@example.com"},
+		"test_form_password": {"password123"},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(formData.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status code 200, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var responseData TestForm
+	err := json.Unmarshal(rec.Body.Bytes(), &responseData)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "testuser", responseData.Username)
+	assert.Equal(t, "test@example.com", responseData.Email)
+	assert.Equal(t, "password123", responseData.Password)
 }
 
+// TestCSRFMiddleware проверяет корректность работы CSRFMiddleware.
 func TestCSRFMiddleware(t *testing.T) {
 	e := echo.New()
 
@@ -49,38 +72,102 @@ func TestCSRFMiddleware(t *testing.T) {
 
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("Expected status code 403, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
 
-// Тестируем рендеринг формы
-func TestRenderForm(t *testing.T) {
-	// Создаем новый экземпляр echo
+// TestRenderFormSuccess проверяет успешный рендеринг формы.
+func TestRenderFormSuccess(t *testing.T) {
 	e := echo.New()
 
-	// Инициализируем рендерер шаблонов
-	templateRenderer := core.NewTemplateRenderer()
-
-	// Регистрируем рендерер шаблонов
-	e.Renderer = templateRenderer
-
-	// Создаем новый запрос
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-
-	// Устанавливаем контекст запроса
-	c := e.NewContext(req, rec)
-
-	// Пытаемся отрендерить шаблон
-	err := templateRenderer.Render(rec, "default.html", nil, c) // Передаем имя шаблона без пути
+	// Получаем абсолютный путь к директории templates
+	projectDir, err := filepath.Abs("..")
 	if err != nil {
-		t.Errorf("Error rendering template: %v", err)
+		t.Fatalf("Failed to get project directory: %v", err)
+	}
+	templateDir := filepath.Join(projectDir, "templates")
+
+	// Инициализируем рендерер
+	renderer, err := core.NewTemplateRenderer(templateDir)
+	if err != nil {
+		t.Fatalf("Failed to create template renderer: %v", err)
 	}
 
-	// Проверяем статус код и другие параметры
-	assert.Equal(t, http.StatusOK, rec.Code) // Проверяем, что статус код 200
+	// Устанавливаем рендерер
+	e.Renderer = renderer
 
-	// Логируем результат для отладки
-	//log.Printf("Response body: %s", rec.Body.String())
+	model := TestForm{
+		Method: "POST",
+		FormID: "test_form",
+	}
+	form := core.NewForm(model, model.Method, model.FormID)
+	form.RenderHTML = true // Устанавливаем флаг (true для монолита, false для разделённого фронта/бэка)
+
+	// Заполняем форму данными
+	form.Fields[0].Value = "testuser"         // Username
+	form.Fields[1].Value = "test@example.com" // Email
+	form.Fields[2].Value = "password123"      // Password
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err = RenderForm(c, form)
+	assert.NoError(t, err)
+	assert.Contains(t, rec.Body.String(), "test_form_username")
+	assert.Contains(t, rec.Body.String(), "test_form_email")
+	assert.Contains(t, rec.Body.String(), "test_form_password")
+}
+
+// TestAddCustomValidationMiddleware проверяет добавление кастомных правил валидации.
+func TestAddCustomValidationMiddleware(t *testing.T) {
+	e := echo.New()
+	model := &TestForm{ // Используем указатель на модель
+		Method: "POST",
+		FormID: "test_form",
+	}
+
+	e.Use(FormMiddleware(model, model.Method, model.FormID))
+	e.Use(AddCustomValidationMiddleware("username", func(value string) error {
+		if len(value) < 5 {
+			return errors.New("username too short")
+		}
+		return nil
+	}))
+	e.POST("/", func(c echo.Context) error {
+		form := c.Get("form").(*core.Form)
+
+		// Находим поле "username" и применяем кастомную валидацию
+		for _, field := range form.Fields {
+			if field.Name == "username" && field.CustomValidation != nil {
+				if err := field.CustomValidation(field.Value.(string)); err != nil {
+					form.AddError(field.Name, err.Error()) // Используем метод AddError
+					responseData := form.ToResponse()      // Преобразуем Form в FormResponse
+					return c.JSON(http.StatusBadRequest, responseData)
+				}
+			}
+		}
+
+		// Если кастомная валидация прошла успешно, возвращаем OK
+		return c.NoContent(http.StatusOK)
+	})
+
+	// Тест с коротким именем
+	formData := url.Values{
+		"test_form_username": {"us"},
+		"test_form_email":    {"testexample.com"},
+		"test_form_password": {"password"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(formData.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	// Тест с валидным именем
+	formData.Set("test_form_username", "longusername")
+	req = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(formData.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }

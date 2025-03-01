@@ -3,20 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/js/ajax.js" defer></script>
 </head>
 <body>
-    <form method="POST">
+    <form method="{{ if eq .Method "GET" }}GET{{ else }}POST{{ end }}">
+        {{ if and (ne .Method "GET") (ne .Method "POST")  }}
+            <input type="hidden" name="_method" value="{{ .Method }}">
+        {{ end }}
+        <input type="hidden" name="form_id" value="{{ .FormID }}">
         {{ range .Fields }}
+            {{ if not .Hidden }}
             <div>
                 <label>{{ .Name }}</label>
-                <input type="{{ .Type }}" name="{{ .Name }}" value="{{ .Value }}">
+                <input type="{{ .Type }}" name="{{ $.FormID }}_{{ .Name }}" value="{{ .Value }}">
                 {{ if .Error }}
                     <span style="color: red;">{{ .Error }}</span>
                 {{ end }}
             </div>
+            {{ end }}
         {{ end }}
-        <!-- Скрытое поле для CSRF-токена -->
-        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <input type="hidden" name="{{ .FormID }}_csrf_token" value="{{ .CSRF }}">
         <button type="submit">Submit</button>
     </form>
 </body>

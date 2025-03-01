@@ -11,10 +11,11 @@ func bindForm(r *http.Request, form *Form) error {
 		return err
 	}
 
-	// Проходим по полям формы и заполняем значениями из запроса
 	for _, field := range form.Fields {
-		value := r.FormValue(field.Name)
-		field.Value = value
+		// Учитываем FormID при извлечении значений
+		key := form.FormID + "_" + field.Name
+		value := r.FormValue(key)
+		field.Value = value // Устанавливаем значение поля
 	}
 
 	return nil

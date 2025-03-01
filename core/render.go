@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"html/template"
 	"io"
@@ -15,7 +16,8 @@ type TemplateRenderer struct {
 
 // Render выполняет рендеринг шаблона
 func (tr *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	err := tr.Templates.ExecuteTemplate(w, name, data) // Используем имя шаблона без пути
+	// Используем имя шаблона, равное имени файла (например, "default.html")
+	err := tr.Templates.ExecuteTemplate(w, "default.html", data)
 	if err != nil {
 		log.Println("Error rendering template:", err)
 		return err
@@ -24,24 +26,15 @@ func (tr *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c
 }
 
 // NewTemplateRenderer инициализирует и возвращает новый рендерер шаблонов
-func NewTemplateRenderer() *TemplateRenderer {
-	// Получаем абсолютный путь к корню проекта
-	projectDir, err := filepath.Abs("..") // Переходим на один уровень выше, чтобы получить корень проекта
-	if err != nil {
-		log.Fatalf("Error getting absolute project directory path: %v", err)
-	}
-
-	// Путь к папке с шаблонами (в корне проекта)
-	templateDir := filepath.Join(projectDir, "templates")
-
+func NewTemplateRenderer(templateDir string) (*TemplateRenderer, error) {
 	// Используем ParseGlob для поиска шаблонов в указанной папке
 	tmpl, err := template.ParseGlob(filepath.Join(templateDir, "*.html"))
 	if err != nil {
-		log.Fatalf("Error loading templates: %v", err)
+		return nil, fmt.Errorf("error loading templates: %v", err)
 	}
 
 	// Возвращаем рендерер с загруженными шаблонами
 	return &TemplateRenderer{
 		Templates: tmpl,
-	}
+	}, nil
 }

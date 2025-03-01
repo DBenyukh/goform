@@ -17,11 +17,21 @@ func parseModel(val reflect.Value) []*Field {
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
 		tag := field.Tag.Get("form")
-		if tag == "" {
+
+		// Если тег form:"-", пропускаем это поле
+		if tag == "-" {
 			continue
 		}
 
+		// Если тег form пустой, поле считается скрытым
+		hidden := tag == ""
+
+		// Создаем поле формы
 		formField := NewField(tag, getFieldType(field.Type.Kind()))
+		formField.Hidden = hidden // Устанавливаем, является ли поле скрытым
+		formField.Value = ""      // Инициализируем значение пустой строкой
+
+		// Добавляем поле в список полей формы
 		fields = append(fields, formField)
 	}
 

@@ -11,13 +11,23 @@ const (
 )
 
 // FormMiddleware возвращает middleware для автоматической привязки данных.
-func FormMiddleware(model interface{}) echo.MiddlewareFunc {
+func FormMiddleware(model interface{}, method, formID string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			form := core.NewForm(model)
+			// Создаем форму
+			form := core.NewForm(model, method, formID)
+
+			// Привязываем данные из запроса к форме
 			if err := form.Bind(c.Request()); err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "Invalid form data")
 			}
+
+			// Обновляем модель данными из формы
+			if err := core.UpdateModelFromForm(model, form); err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update model")
+			}
+
+			// Устанавливаем форму в контекст
 			c.Set("form", form)
 			return next(c)
 		}
@@ -68,7 +78,24 @@ func SetCSRFToken(c echo.Context, token string) {
 
 // RenderForm рендерит форму в контексте Echo.
 func RenderForm(c echo.Context, form *core.Form) error {
-	return c.Render(http.StatusOK, "templates/default.html", map[string]interface{}{
-		"form": form.Render(),
-	})
+	// Получаем данные для рендеринга
+	renderData := form.ToResponse()
+
+	// Передаем данные в шаблон
+	return c.Render(http.StatusOK, "default.html", renderData)
+}
+
+// AddCustomValidationMiddleware возвращает middleware для добавления кастомных правил валидации.
+func AddCustomValidationMiddleware(fieldName string, fn core.ValidationFunc) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			form, ok := c.Get("form").(*core.Form)
+			if !ok {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Form not found in context")
+			}
+
+			form.AddCustomValidation(fieldName, fn)
+			return next(c)
+		}
+	}
 }

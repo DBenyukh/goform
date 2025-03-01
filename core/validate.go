@@ -7,13 +7,31 @@ import (
 	"strings"
 )
 
+type ValidationFunc func(value string) error
+
 // validateForm проверяет данные формы.
-func validateForm(form *Form, model interface{}) error {
+func validateForm(form *Form, model interface{}, fieldsToValidate ...string) error {
 	val := reflect.ValueOf(model).Elem()
 	typeOfModel := val.Type()
 
 	for _, field := range form.Fields {
+		// Пропуск полей, которые не нужно валидировать
+		if len(fieldsToValidate) > 0 && !contains(fieldsToValidate, field.Name) {
+			continue
+		}
+
 		value := field.Value.(string)
+
+		// Вызов кастомной функции валидации
+		if field.CustomValidation != nil {
+			if err := field.CustomValidation(value); err != nil {
+				field.Error = err.Error()
+				form.Errs[field.Name] = field.Error
+				continue // Пропустить стандартную валидацию, если кастомная валидация не прошла
+			}
+		}
+
+		// Стандартная валидация
 		rules := getValidationRules(model, field.Name)
 		customMsg := getCustomErrorMessage(typeOfModel, field.Name)
 
@@ -21,7 +39,7 @@ func validateForm(form *Form, model interface{}) error {
 			switch {
 			case rule == "required" && value == "":
 				field.Error = customMsg
-				form.errors[field.Name] = field.Error
+				form.Errs[field.Name] = field.Error
 			case strings.HasPrefix(rule, "min="):
 				min, _ := strconv.Atoi(strings.TrimPrefix(rule, "min="))
 				if len(value) < min {
@@ -30,7 +48,7 @@ func validateForm(form *Form, model interface{}) error {
 					} else {
 						field.Error = customMsg
 					}
-					form.errors[field.Name] = field.Error
+					form.Errs[field.Name] = field.Error
 				}
 			case strings.HasPrefix(rule, "max="):
 				max, _ := strconv.Atoi(strings.TrimPrefix(rule, "max="))
@@ -40,15 +58,16 @@ func validateForm(form *Form, model interface{}) error {
 					} else {
 						field.Error = customMsg
 					}
-					form.errors[field.Name] = field.Error
+					form.Errs[field.Name] = field.Error
 				}
 			case rule == "email" && !strings.Contains(value, "@"):
 				field.Error = customMsg
-				form.errors[field.Name] = field.Error
+				form.Errs[field.Name] = field.Error
 			}
 		}
 	}
-	if len(form.errors) > 0 {
+
+	if len(form.Errs) > 0 {
 		return fmt.Errorf("validation errors")
 	}
 	return nil
@@ -86,4 +105,14 @@ func getCustomErrorMessage(modelType reflect.Type, fieldName string) string {
 // containsFormatSpecifier проверяет, содержит ли строка форматирующие спецификаторы.
 func containsFormatSpecifier(s string) bool {
 	return strings.Contains(s, "%")
+}
+
+// contains проверяет, содержится ли строка в слайсе.
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
