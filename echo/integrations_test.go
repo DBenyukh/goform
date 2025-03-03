@@ -87,7 +87,7 @@ func TestRenderFormSuccess(t *testing.T) {
 	templateDir := filepath.Join(projectDir, "templates")
 
 	// Инициализируем рендерер
-	renderer, err := core.NewTemplateRenderer(templateDir)
+	renderer, err := core.NewTemplateRenderer(templateDir, "default.html")
 	if err != nil {
 		t.Fatalf("Failed to create template renderer: %v", err)
 	}

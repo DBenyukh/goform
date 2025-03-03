@@ -169,16 +169,3 @@ func (f *Form) AddError(fieldName, errorMessage string) {
 func (f *Form) GetErrors() map[string]string {
 	return f.Errs
 }
-
-// ToJSON возвращает данные формы в формате JSON.
-func (f *Form) ToJSON() map[string]interface{} {
-	data := make(map[string]interface{})
-	for _, field := range f.Fields {
-		data[field.Name] = map[string]interface{}{
-			"type":  field.Type,
-			"value": field.Value,
-			"error": field.Error,
-		}
-	}
-	return data
-}

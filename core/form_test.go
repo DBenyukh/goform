@@ -144,7 +144,7 @@ func TestFormToJSON(t *testing.T) {
 	form.Fields[2].Value = "password123"
 
 	// Получаем JSON
-	jsonData := form.ToJSON()
+	jsonData := form.ToJSONResponse()
 
 	// Проверяем, что данные корректны
 	if jsonData["username"].(map[string]interface{})["value"] != "testuser" {

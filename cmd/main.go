@@ -29,7 +29,7 @@ func init() {
 	}
 
 	templateDir := filepath.Join(projectDir, "templates")
-	renderer, err := core.NewTemplateRenderer(templateDir)
+	renderer, err := core.NewTemplateRenderer(templateDir, "") // Указываем имя шаблона
 	if err != nil {
 		log.Fatalf("Failed to create template renderer: %v", err)
 	}
@@ -94,7 +94,7 @@ func main() {
 
 			// Возвращаем данные в зависимости от флага
 			if form.RenderHTML {
-				_ = tmpl.Execute(w, form.ToResponse())
+				_ = tmpl.ExecuteTemplate(w, "default.html", form.ToResponse())
 			} else {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(form.ToResponse())
@@ -177,7 +177,7 @@ func main() {
 			})
 
 			// Рендеринг формы с новым CSRF-токеном
-			_ = tmpl.Execute(w, form.ToResponse())
+			_ = tmpl.ExecuteTemplate(w, "default.html", form.ToResponse())
 			return
 		}
 
