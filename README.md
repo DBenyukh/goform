@@ -3,7 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/DBenyukh/goform.svg)](https://pkg.go.dev/github.com/DBenyukh/goform)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/DBenyukh/goform/tree/master/LICENSE)
 
-`GoForm` — это библиотека для работы с HTML-формами в Go. Она предоставляет удобный API для создания, рендеринга, валидации и обработки форм. Библиотека поддерживает рендеринг форм в HTML и JSON, кастомную валидацию, обработку AJAX-запросов и многое другое.
+`GoForm` — это пакет для работы с HTML-формами в Go. Он предоставляет удобный API для создания, рендеринга, валидации и обработки форм. Пакет поддерживает рендеринг форм в HTML и JSON, кастомную валидацию, обработку AJAX-запросов и многое другое.
 
 ---
 
