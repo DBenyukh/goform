@@ -154,7 +154,7 @@ response := form.ToResponse()
 Пример использования:
 ```go
 if form.RenderHTML {
-_ = tmpl.ExecuteTemplate(w, "имя_шаблона.html", form.ToResponse())
+_ = tmpl.ExecuteTemplate(w, "имя_шаблона.html", response)
 } else {
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(response)
